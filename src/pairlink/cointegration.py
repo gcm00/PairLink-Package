@@ -1,8 +1,11 @@
+import warnings
 import pandas as pd
 from statsmodels.tsa.stattools import adfuller, kpss
+from .processing import*
+from statsmodels.tools.sm_exceptions import InterpolationWarning
 import statsmodels.api as sm
 
-def _engle_granger_test(series1: pd.Series, series2: pd.Series,autolag: str = "AIC"):
+def engle_granger_global(series1: pd.Series, series2: pd.Series,autolag: str = "AIC"):
     """
     Verifier que les 2 series ont la meme intégration via ADF + KPSS
     Effectue le test de cointégration d'Engle-Granger dans les deux directions :
@@ -14,7 +17,7 @@ def _engle_granger_test(series1: pd.Series, series2: pd.Series,autolag: str = "A
 
     #-----------------------------------
 
-    def _check_adf(series, max_diff=2, signif_level=0.05):
+    def test_adf(series, max_diff=2, signif_level=0.05):
         current_series = series.copy()
         for d in range(max_diff + 1):
             try:
@@ -29,7 +32,7 @@ def _engle_granger_test(series1: pd.Series, series2: pd.Series,autolag: str = "A
 
     #-----------------------------------
 
-    def _check_kpss_c(series, max_diff=2, signif_level=0.05):
+    def test_kpss_c(series, max_diff=2, signif_level=0.05):
         current = series.copy()
         for d in range(max_diff + 1):
             try:
@@ -44,7 +47,7 @@ def _engle_granger_test(series1: pd.Series, series2: pd.Series,autolag: str = "A
 
     #-----------------------------------
 
-    def _check_kpss_ct(series, max_diff=2, signif_level=0.05):
+    def test_kpss_ct(series, max_diff=2, signif_level=0.05):
         current = series.copy()
         for d in range(max_diff + 1):
             try:
@@ -59,7 +62,7 @@ def _engle_granger_test(series1: pd.Series, series2: pd.Series,autolag: str = "A
 
     #-----------------------------------
 
-    def _engle_granger(dep: pd.Series, indep: pd.Series, direction_label: str):
+    def test_engle_granger(dep: pd.Series, indep: pd.Series, direction_label: str):
         x = sm.add_constant(indep)
         model = sm.OLS(dep, x).fit()
         hedge_ratio = model.params.iloc[1]
@@ -69,29 +72,26 @@ def _engle_granger_test(series1: pd.Series, series2: pd.Series,autolag: str = "A
         adf_stat, pvalue, _, _, crit_values, _ = adf_result
 
         return {
-            'direction': direction_label,
             'is_cointegrated': pvalue < 0.05,
-            'p-value': pvalue,
-            'adf_statistic': adf_stat,
-            'critical_values': crit_values,
+            'p-value': round(pvalue,4),
             'hedge_ratio': hedge_ratio,
-            'residuals': residuals
         }
 
     #-----------------------------------
 
-    integration_1_adf = _check_adf(series=series1)
-    integration_2_adf = _check_adf(series=series2)
+    warnings.simplefilter("ignore", InterpolationWarning)
+    integration_1_adf = test_adf(series=series1)
+    integration_2_adf = test_adf(series=series2)
 
     if integration_1_adf == 1 and integration_2_adf == 1:
-        integration_1_kpss_c = _check_kpss_c(series=series1)
-        integration_1_kpss_ct = _check_kpss_ct(series=series1)
-        integration_2_kpss_c = _check_kpss_c(series=series2)
-        integration_2_kpss_ct = _check_kpss_ct(series=series2)
+        integration_1_kpss_c = test_kpss_c(series=series1)
+        integration_1_kpss_ct = test_kpss_ct(series=series1)
+        integration_2_kpss_c = test_kpss_c(series=series2)
+        integration_2_kpss_ct = test_kpss_ct(series=series2)
 
         if (integration_1_kpss_c == 1 and integration_2_kpss_c == 1) or (integration_1_kpss_ct == 1 and integration_2_kpss_ct == 1):
-            eg_1 = _engle_granger(series1, series2, "linest:s1_on_s2")
-            eg_2 = _engle_granger(series2, series1, "linest:s2_on_s1")
+            eg_1 = test_engle_granger(series1, series2, "linest:s1_on_s2")
+            eg_2 = test_engle_granger(series2, series1, "linest:s2_on_s1")
 
         else:
             print(
@@ -128,6 +128,6 @@ def _engle_granger_test(series1: pd.Series, series2: pd.Series,autolag: str = "A
         "Integration Series 2 - KPSS - c": integration_2_kpss_c,
         "Integration Series 1 - KPSS - ct": integration_1_kpss_ct,
         "Integration Series 2 - KPSS - ct": integration_2_kpss_ct,
-        "Engle_linest_1/2": eg_1,
-        "Engle_linest_2/1": eg_2
+        "Engle_linest_1/2": eg_1['p-value'],
+        "Engle_linest_2/1": eg_2['p-value']
     }
