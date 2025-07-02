@@ -31,15 +31,19 @@ def _transform_series_pct_change(series):
     return series
 
 
-def _preprocess_series(series1, series2, log=False, pct_change=False):
+def preprocess_series(series1, series2, log=False, pct_change=False):
     _validate_series(series1, series2)
+    series1, series2 = _align_series(series1, series2)
     if log and pct_change:
         raise ValueError("Please choose either logarithmic returns OR percentage returns, not both.")
     if log:
         s1 = _transform_series_log(series1)
         s2 = _transform_series_log(series2)
+        s1, s2 = _align_series(s1, s2)
+        return s1, s2
     if pct_change:
         s1 = _transform_series_pct_change(series1)
         s2 = _transform_series_pct_change(series2)
-    s1, s2 = _align_series(s1, s2)
-    return s1, s2
+        s1, s2 = _align_series(s1, s2)
+        return s1, s2
+    return series1, series2
