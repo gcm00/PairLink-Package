@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 from .processing import _transform_series_pct_change
-from statsmodels.stats.diagnostic import breaks_cusumolsresid
-
 
 
 def half_life(y: pd.Series, x: pd.Series):
@@ -260,7 +258,7 @@ def estimate_kappa(y: pd.Series, x: pd.Series) -> float:
         return 0.0
 
     kappa = -np.log(1 + lambda_hat)
-    return round(kappa, 4)
+    return round(kappa, 3)
 
 
 

@@ -1,5 +1,4 @@
 import warnings
-import pandas as pd
 from statsmodels.tsa.stattools import adfuller, kpss
 from .processing import*
 from statsmodels.tools.sm_exceptions import InterpolationWarning
@@ -12,8 +11,6 @@ def engle_granger_global(series1: pd.Series, series2: pd.Series,autolag: str = "
     - series1 ~ series2
     - series2 ~ series1
     """
-    eg_1 = None
-    eg_2 = None
 
     #-----------------------------------
 
@@ -62,18 +59,23 @@ def engle_granger_global(series1: pd.Series, series2: pd.Series,autolag: str = "
 
     #-----------------------------------
 
-    def test_engle_granger(dep: pd.Series, indep: pd.Series, direction_label: str):
+    def test_engle_granger(dep: pd.Series, indep: pd.Series):
+
         x = sm.add_constant(indep)
         model = sm.OLS(dep, x).fit()
         hedge_ratio = model.params.iloc[1]
         residuals = model.resid
+        try:
+            adf_result = adfuller(residuals, autolag=autolag)
+            adf_stat, pvalue, _, _, crit_values, _ = adf_result
+        except Exception as e:
+            print(f"[ERROR] Engle Granger test failed: {e} - put default p-value = 1")
 
-        adf_result = adfuller(residuals, autolag=autolag)
-        adf_stat, pvalue, _, _, crit_values, _ = adf_result
+            return {'p-value': 1}
 
         return {
             'is_cointegrated': pvalue < 0.05,
-            'p-value': round(pvalue,4),
+            'p-value': round(pvalue,3),
             'hedge_ratio': hedge_ratio,
         }
 
@@ -90,11 +92,11 @@ def engle_granger_global(series1: pd.Series, series2: pd.Series,autolag: str = "
         integration_2_kpss_ct = test_kpss_ct(series=series2)
 
         if (integration_1_kpss_c == 1 and integration_2_kpss_c == 1) or (integration_1_kpss_ct == 1 and integration_2_kpss_ct == 1):
-            eg_1 = test_engle_granger(series1, series2, "linest:s1_on_s2")
-            eg_2 = test_engle_granger(series2, series1, "linest:s2_on_s1")
+            eg = test_engle_granger(series1, series2)
 
         else:
             print(
+                f"\n[WARNING] \n"
                 f"According to the KPSS Test (regression='c'): "
                 f"Series 1 is I({integration_1_kpss_c}), Series 2 is I({integration_2_kpss_c})\n"
                 f"According to the KPSS Test (regression='ct'): "
@@ -109,16 +111,21 @@ def engle_granger_global(series1: pd.Series, series2: pd.Series,autolag: str = "
                 "Integration Series 2 - KPSS - c": integration_2_kpss_c,
                 "Integration Series 1 - KPSS - ct": integration_1_kpss_ct,
                 "Integration Series 2 - KPSS - ct": integration_2_kpss_ct,
-                "Cointegration Status": "Not Tested - Non I(1)"
+                "Engle Granger": "Not Tested - No KPSS I(1)",
             }
 
     else:
-        print(f"According to ADF Test: 1st Series is I({integration_1_adf}) and 2nd is I({integration_2_adf}), "
+        print(f"\n[WARNING] \n"
+              f"According to ADF Test: 1st Series is I({integration_1_adf}) and 2nd is I({integration_2_adf}), "
               f"However, both series must be I(1) to perform the cointegration test.")
         return {
             "Integration Series 1 - ADF": integration_1_adf,
             "Integration Series 2 - ADF": integration_2_adf,
-            "Cointegration Status": "Not Tested - Non I(1)"
+            "Integration Series 1 - KPSS - c": "Not Tested - ADFs Non I(1)",
+            "Integration Series 2 - KPSS - c": "Not Tested - ADFs Non I(1)",
+            "Integration Series 1 - KPSS - ct": "Not Tested - ADFs Non I(1)",
+            "Integration Series 2 - KPSS - ct": "Not Tested - ADFs Non I(1)",
+            "Engle Granger": "Not Tested - ADFs Non I(1)",
         }
 
     return {
@@ -128,6 +135,5 @@ def engle_granger_global(series1: pd.Series, series2: pd.Series,autolag: str = "
         "Integration Series 2 - KPSS - c": integration_2_kpss_c,
         "Integration Series 1 - KPSS - ct": integration_1_kpss_ct,
         "Integration Series 2 - KPSS - ct": integration_2_kpss_ct,
-        "Engle_linest_1/2": eg_1['p-value'],
-        "Engle_linest_2/1": eg_2['p-value']
+        "Engle Granger": eg['p-value'],
     }

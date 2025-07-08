@@ -47,3 +47,4 @@ def preprocess_series(series1, series2, log=False, pct_change=False):
         s1, s2 = _align_series(s1, s2)
         return s1, s2
     return series1, series2
+
